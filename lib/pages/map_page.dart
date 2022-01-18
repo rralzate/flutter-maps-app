@@ -1,12 +1,79 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-class MapPage extends StatelessWidget {
+import 'package:maps_app/blocs/blocs.dart';
+import 'package:maps_app/views/views.dart';
+import 'package:maps_app/widgets/widgets.dart';
+
+class MapPage extends StatefulWidget {
   const MapPage({Key? key}) : super(key: key);
+
+  @override
+  State<MapPage> createState() => _MapPageState();
+}
+
+class _MapPageState extends State<MapPage> {
+  late LocationBloc locationBloc;
+
+  @override
+  void initState() {
+    super.initState();
+
+    locationBloc = BlocProvider.of<LocationBloc>(context);
+    //locationBloc.getCurrentPosition();
+    locationBloc.startFollowingUser();
+  }
+
+  @override
+  void dispose() {
+    locationBloc.stopFollowingUser();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: Text('Hola Mundo'),
+      body: BlocBuilder<LocationBloc, LocationState>(
+          builder: (context, locationState) {
+        if (locationState.lastKnowLocation == null) {
+          return const Center(
+            child: Text('Espere por favor'),
+          );
+        }
+
+        return BlocBuilder<MapBloc, MapState>(
+          builder: (context, mapState) {
+            Map<String, Polyline> polylines = Map.from(mapState.polylines);
+
+            if (!mapState.showMyRoute) {
+              polylines.removeWhere((key, value) => key == 'myRoute');
+            }
+
+            return SingleChildScrollView(
+              child: Stack(
+                children: [
+                  MapView(
+                    initialLocation: locationState.lastKnowLocation!,
+                    polylines: polylines.values.toSet(),
+                    markers: mapState.markers.values.toSet(),
+                  ),
+                  const SearchBar(),
+                  const ManualMarket(),
+                ],
+              ),
+            );
+          },
+        );
+      }),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: const [
+          BtnToggleUserRoute(),
+          BtnFollowUser(),
+          BtnCurrentLocation(),
+        ],
       ),
     );
   }
